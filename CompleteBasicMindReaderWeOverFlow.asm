@@ -221,5 +221,3 @@ printLine:
 setToOne:
 	li	$t4, 1
 	j continue	
-
-	j continue	
