@@ -16,16 +16,38 @@
 	randInt:	.word		0
 	result:		.word 		0
 	
-	
-			.macro count
+			#Evaluates if the card has been shown 
+			#Also records cards that user has confirmed has their number
+			############################################################
+			.macro Card_Number_Evaluation (%cardOffSet, %aNumber, %label)		
+				la   $a3, cardFlag
+				lw   $s0, %cardOffSet($a3)
+				beq  $s0, %aNumber, %label
+				li   $s0, %aNumber
+				sw   $s0, %cardOffSet($a3)
+				li   $v0, %aNumber
+				move $t9, $ra
+				addi $t8, $t8, 1
+				move $ra, $t9
+				jr   $ra
+			.end_macro
+			
+			
+			#Counts how many times a card has been evaluated; Should only be evaluated once
+			###############################################################################
+			.macro count			
 			addi $t8, $t8, 1
 			.end_macro
 	
+			#Closes the program
+			###################
 			.macro endGame
 				li $v0,10
 				syscall
 			.end_macro	
 			
+			#Clears the flags for each card; Used for sequential games
+			##########################################################
 			.macro Clear_All_Flags
 				sw $zero , cardFlag($zero)	
 				sw $zero , cardFlag+4($zero)	
@@ -36,219 +58,168 @@
 				sw $zero , result($zero)
 			.end_macro
 			
+			#Shortcut for syscalls
+			######################
 			.macro Li_La_Sys (%eval, %argument)
 				li $v0, %eval
 				la $a0, %argument
 				syscall
 			.end_macro
 			
+			#Shortcut for receiving results from subroutines
+			################################################
 			.macro	Branch_If_a0_Equal (%number, %label)
 				beq $a0, %number, %label
-			.end_macro
+			.end_macro		
 			
-			.macro	Branch_If_Equal (%number, %label)
-				beq $s0, %number, %label
-			.end_macro
-			
-			.macro	Branch_If_Equal (%register, %number, %label)
-				beq %register, %number, %label
-			.end_macro			
-			
-			.macro Load_Imm (%register)
+			#Shortcut to clear specified registers
+			######################################
+			.macro  Clear_Reg (%register)
 				li %register, 0
 			.end_macro
 			
-			.macro Load_Imm (%register, %value)
-				li %register, %value
-			.end_macro
 .text
 main:
-	Li_La_Sys (50, instructions)
+	Li_La_Sys (50, instructions)	# Prompts user to begin game
 	
-	Branch_If_a0_Equal (1, main)
-	Branch_If_a0_Equal (2, end)	
+	Branch_If_a0_Equal (0, random)	# If Yes, Proceed with game
+	Branch_If_a0_Equal (2, end)	# If No, Loop back to main
+	Branch_If_a0_Equal (1, end)	# If exit, Close game
 	
-	Load_Imm ($t8)		# clearing register
-	Load_Imm ($s7) 		# clearing register
-	Clear_All_Flags
+	Clear_Reg ($t8)			# Clearing register
+	Clear_Reg ($s7) 		# Clearing register
+	Clear_All_Flags			# Clears all flags
 random:	
 	#random integer from 0 - 5
-	Load_Imm ($a1, 6)
-	Load_Imm ($v0, 42)
+	li	$a1, 6			# Loads Upper bound for Random Int Generation
+	li	$v0, 42			# Prompts system to generate random integer
 	syscall
 	
-	move $t7, $a0			# copy random int
-	sw $t7, randInt($zero)		# store random integer
+	
+	sw	$a0, randInt($zero)	# Store random integer
 	
 	jal checkCard			# Check if random int has already been generated
-	Load_Imm ($s6)			# clear s6 to input checkCard result
-	move $s6, $v0			# hold the value of the card in saved register	
+	Clear_Reg ($s6)			# Clear s6 to input checkCard result
+	move	$s6, $v0		# Hold the value of the card in saved register	
 	
-	jal arrayElementCalculator	# print the array
+	jal arrayElementCalculator	# Print the array
 Question:	
-	jal printLine
-	Li_La_Sys (50, askUser)
+	jal	printLine			# Jump to printLine
+	Li_La_Sys (50, askUser)		# Initiates question dialog
 	
-	Branch_If_a0_Equal (1, no)	# if user input no	
-	Branch_If_a0_Equal (2, end)	# if user inputs cancel
-	Load_Imm ($t7)			# clear for result	
-	lw $t7, result($zero)		# load result
-	add  $t7, $t7, $s6		# acumulate result
-	sw $t7, result($zero)		# save result in RAM
+	Branch_If_a0_Equal (1, no)	# If user input no	
+	Branch_If_a0_Equal (2, end)	# If user inputs cancel
+	Clear_Reg ($t7)			# Clear for result	
+	lw	$t7, result($zero)	# Load result
+	add	$t7, $t7, $s6		# Acumulate result
+	sw	$t7, result($zero)	# Save result in RAM
 	
-	Branch_If_Equal ($t8, 6, finalResult)	# if count is 7 go to final result
-	j random
+	beq	$t8, 6, finalResult	# If count is 7 go to final result
+	j random			# Jump to random
 no:
-	bne $t8, 6, random		# if total of cards displayed not equal to 6 go to random
+	bne 	$t8, 6, random		# If total of cards displayed not equal to 6 go to random
 		
 finalResult:
-	Load_Imm ($v0, 56)
-	la $a0, yourNumber
-	lw $a1, result($zero)
+	li $v0, 56
+	la $a0, yourNumber	# Presents result dialog
+	lw 	$a1, result($zero)	# Loads result into number space
 	syscall
 	
-	Li_La_Sys (50, playAgain)
-	Branch_If_Equal ($a0, 0, main)
+	Li_La_Sys (50, playAgain)	# Asks user if they want to play again
+	beq	$a0, 0, main		# Loop back to start
 end:	
-	endGame		# end program
+	endGame				# End program
 #################################################################
 arrayElementCalculator:	
-	Load_Imm ($t0)	# $t0 clear
-	Load_Imm ($t1)
-	addi  $t1, $t1, 32	# end of row index counter
+	Clear_Reg ($t0)				# $t0 clear
+	Clear_Reg ($t1)
+	addi	$t1, $t1, 32			# End of row index counter
 loop:	
-	lw $a1, baseArray($t0)	# place first address value into $a0 (get ready to print)	
+	lw	$a1, baseArray($t0)			# Place first address value into $a0 (get ready to print)	
 	jal formula
-	move $t2, $v1		
-	bgt  $v1, 9, noXtraSpc	# if the elements are <= 9, print an extra space to even the array out
-	jal printSpace
+	move 	$t2, $v1		
+	bgt	$v1, 9, noXtraSpc			# If the elements are <= 9, print an extra space to even the array out
+	jal	printSpace
 noXtraSpc:
-	move $a0, $t2	
-	Load_Imm ($v0, 1)			# get ready to print an integer
-	addi $t0, $t0, 4			# go to the next element in the array
-	Branch_If_Equal ($t0, 132, Question)	# has the index reach the end of the array? if true stop loop and go to end
-	syscall					# print integer in $a0	
-	jal printSpace
-	bne $t1, $t0, skip 			
-	jal printLine				# printLine
+	move	$a0, $t2	
+	li	$v0, 1				# Get ready to print an integer
+	addi	$t0, $t0, 4			# Go to the next element in the array
+	beq	$t0, 132, Question		# Has the index reach the end of the array? if true stop loop and go to end
+	syscall					# Print integer in $a0	
+	jal 	printSpace
+	bne 	$t1, $t0, skip 			
+	jal printLine				# PrintLine
 skip:
-	j loop					# go to loop label
+	j 	loop					# Go to loop label
 ################################################################################
 formula: # a($v1) = n + 2^r + 2^r [floor((n)/(2^r))]		
-	mtc1 $a1, $f0 		#index
-	cvt.s.w $f0, $f0 	#index double		
-	Load_Imm ($a2)		# clear register
-	lw $a2, randInt($zero)	# "r"
-	Load_Imm ($t2, 2)	# $t2 = base
-	Load_Imm ($t4, 2)	# $t4 = 2^1
-	Load_Imm ($t3, 1)	# flag for powers of two if $a2 is not 1 nor 0
-	Branch_If_Equal ($a2, 0, setToOne)	# if $a2 is 0, set $t4 to 1 and go to continue
-	Branch_If_Equal ($a2, 1, continue)	# if $a2 is 1, $t4 stays as 2 and go to continue
+	mtc1 	$a1, $f0 				# Index
+	cvt.s.w $f0, $f0 			# Index double		
+	Clear_Reg ($a2)				# Clear register
+	lw 	$a2, randInt($zero)			# "r"
+	li	$t2, 2				# $t2 = base
+	li	$t4, 2				# $t4 = 2^1
+	li	$t3, 1				# Flag for powers of two if $a2 is not 1 nor 0
+	beq	$a2, 0, setToOne		# if $a2 is 0, set $t4 to 1 and go to continue
+	beq	$a2, 1, continue		# if $a2 is 1, $t4 stays as 2 and go to continue
 power:	# 2 ^ "r"($a2)
-	multu $t4, $t2		# $t4 * 2 = mflo 
-	mflo $t4		# $t4 = mflo
-	addi $t3, $t3, 1 	# add 1 to $t3
-	bne  $a2, $t3, power	# if $t3 ! = $a2(randomInt "r")
+	multu 	$t4, $t2				# $t4 * 2 = mflo 
+	mflo 	$t4				# $t4 = mflo
+	addi 	$t3, $t3, 1 			# add 1 to $t3
+	bne  	$a2, $t3, power			# if $t3 ! = $a2(randomInt "r")
 continue:	
-	mtc1 $t4, $f1		# $t4(2^r) copy to coprocessor 1
-	cvt.s.w $f1, $f1	# (2^r) is a float
-	div.s $f12, $f0, $f1 	# (n)/(2^r) = ($a1)/($t4)
-	floor.w.s $f12, $f12	# floor[(n)/(2^r)] = floor[($a1)/($t4)]
-	mfc1 $t5, $f12		# $t5 = floor[($a1)/($t4)] is int
-	mul $t5, $t4, $t5	# $t5 = (2^r) * floor[($a1)/($t4)]
-	add $a1, $a1, $t4	# $a1 = n + (2^r)
-	add $v1, $a1, $t5	# $v1 = {n + (2^r)} + {(2^r) * floor[($a1)/($t4)]}			
-	jr $ra
+	mtc1 	$t4, $f1				# $t4(2^r) copy to coprocessor 1
+	cvt.s.w $f1, $f1			# (2^r) is a float
+	div.s 	$f12, $f0, $f1 			# (n)/(2^r) = ($a1)/($t4)
+	floor.w.s $f12, $f12			# floor[(n)/(2^r)] = floor[($a1)/($t4)]
+	mfc1 	$t5, $f12				# $t5 = floor[($a1)/($t4)] is int
+	mul 	$t5, $t4, $t5			# $t5 = (2^r) * floor[($a1)/($t4)]
+	add 	$a1, $a1, $t4			# $a1 = n + (2^r)
+	add 	$v1, $a1, $t5			# $v1 = {n + (2^r)} + {(2^r) * floor[($a1)/($t4)]}			
+	jr 	$ra
 ########################################
 checkCard:
-	Load_Imm ($t7)			# clear this register
-	Load_Imm ($s0)			# clear this register
-	lw $t7, randInt($zero)		# get the random Int
-	
-	bnez $t7, card1			# next card if not zero, not allowed through get zero
-	lw $s0 , cardFlag($zero)
-	Branch_If_Equal (1, random)	# next card if s0 1, gate is close
-	Load_Imm ($s0, 1)		# close gate, s0 conatins value of 1
-	sw $s0, cardFlag($zero)
-	Load_Imm ($v0, 1)		#store result
-	move $t9, $ra
-	count
-	move $ra, $t9 
-	jr $ra
-	
+	#Clear_Reg ($t7)				# Clear this register
+	#Clear_Reg ($s0)				# Clear this register
+	lw 	$t7, randInt($zero)			# Get the random Int
+	bnez $t7, card1	
+	# card 0
+	Card_Number_Evaluation (0, 1, random)
+		
 	card1:
-	bgt $t7, 1, card2		# next card if is not 1 not allowed through gate 1
-	lw $s0 , cardFlag+4($zero)
-	Branch_If_Equal (2, random)		# next card if s1 = 2, gate is close
-	Load_Imm ($s0, 2)			# close gate, s1 contains the value of 2
-	sw $s0, cardFlag+4($zero)
-	Load_Imm ($v0, 2)
-	move $t9, $ra
-	count
-	move $ra, $t9 
-	jr $ra
+	bgt 	$t7, 1, card2			# Next card if is not 1 not allowed through gate 1
+	Card_Number_Evaluation (4, 2, random)   #***Needs documentation*** 
 	
 	card2:
-	bgt $t7, 2, card3
-	lw $s0 , cardFlag+8($zero)
-	Branch_If_Equal (4, random)
-	Load_Imm ($s0, 4) 	# card 2
-	sw $s0 , cardFlag+8($zero)
-	Load_Imm ($v0, 4)
-	move $t9, $ra
-	count
-	move $ra, $t9 
-	jr $ra
-	
+	bgt 	$t7, 2, card3
+	Card_Number_Evaluation (8, 4, random)
+		
 	card3:
-	bgt $t7, 3, card4
-	lw $s0 , cardFlag+12($zero)
-	Branch_If_Equal (8, random)
-	Load_Imm ($s0, 8)	# card 3
-	sw $s0 , cardFlag+12($zero)
-	Load_Imm ($v0, 8)
-	move $t9, $ra
-	count
-	move $ra, $t9 
-	jr $ra
+	bgt 	$t7, 3, card4
+	Card_Number_Evaluation (12, 8, random)
 	
 	card4:
-	bgt $t7, 4, card5
-	lw $s0 , cardFlag+16($zero)
-	Branch_If_Equal (16, random)
-	Load_Imm ($s0, 16)	# card 4
-	sw $s0 , cardFlag+16($zero)
-	Load_Imm ($v0, 16)
-	move $t9, $ra
-	count
-	move $ra, $t9 
-	jr $ra
+	bgt 	$t7, 4, card5
+	Card_Number_Evaluation (16, 16, random)
 	
 	card5:
-	lw $s0 , cardFlag+20($zero)
-	Branch_If_Equal (32, done)
-	addi $s7, $s7, 1
-	Load_Imm ($s0, 32)	# card 5
-	sw $s0 , cardFlag+20($zero)
-	Load_Imm ($v0, 32)
-	move $t9, $ra
-	count
-	move $ra, $t9 
-	jr $ra
+	Card_Number_Evaluation (20, 32, done)
 done:
-	j random
+	j 	random				# Jumps to random
 	
 ##########################################################
 printSpace:
-	Li_La_Sys (4, space)	# print space
-	#syscall		# print space
-	jr $ra	
+	Li_La_Sys (4, space)			# Print space
+	#syscall				# Print space
+	jr 	$ra	
 ##########################################################
 printLine:
-	Li_La_Sys (4, newLine) 	# print a line
-	addi $t1, $t1, 32	# add 32 to $t1
-	jr $ra			# go back
+	Li_La_Sys (4, newLine) 			# Print a line
+	addi 	$t1, $t1, 32			# Add 32 to $t1
+	jr 	$ra					# Go back
 ###########################################################
 setToOne:
-	Load_Imm ($t4, 1)
+	li	$t4, 1
+	j continue	
+
 	j continue	
