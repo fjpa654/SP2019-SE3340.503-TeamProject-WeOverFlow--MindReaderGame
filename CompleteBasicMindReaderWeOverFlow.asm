@@ -1,4 +1,5 @@
 .data
+	clearScrean:	.asciiz 	"\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"
 	instructions:	.asciiz		"\nThink about a WHOLE NUMBER LESS OR EQUAL THAN 63, and answer the questions.\n Are you ready?\n"
 	askUser:	.asciiz 	"\nIs your number shown in the last array? \n"	
 	yourNumber:	.asciiz		"\nYour number is: "
@@ -80,11 +81,12 @@
 			
 .text
 main:
+	Clear_Reg($a0)
 	Li_La_Sys (50, instructions)	# Prompts user to begin game
 	
-	Branch_If_a0_Equal (0, random)	# If Yes, Proceed with game
+	Branch_If_a0_Equal (1, main)	# If Yes, Proceed with game
 	Branch_If_a0_Equal (2, end)	# If No, Loop back to main
-	Branch_If_a0_Equal (1, end)	# If exit, Close game
+	Branch_If_a0_Equal (-1, end)	# If exit, Close game
 	
 	Clear_Reg ($t8)			# Clearing register
 	Clear_Reg ($s7) 		# Clearing register
@@ -124,6 +126,10 @@ finalResult:
 	la $a0, yourNumber	# Presents result dialog
 	lw 	$a1, result($zero)	# Loads result into number space
 	syscall
+	
+	li $v0, 4
+	la $a0, clearForNewgame
+	syscall 
 	
 	Li_La_Sys (50, playAgain)	# Asks user if they want to play again
 	beq	$a0, 0, main		# Loop back to start
@@ -220,4 +226,4 @@ printLine:
 ###########################################################
 setToOne:
 	li	$t4, 1
-	j continue	
+	j continue
