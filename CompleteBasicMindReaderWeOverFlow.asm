@@ -13,6 +13,11 @@
 			
 .text
 main:
+	
+	li $v0, 4
+	la $a0, clearScreen
+	syscall
+	
 	Clear_Reg($a0)
 	Li_La_Sys (50, instructions)	# Prompts user to begin game
 	
@@ -59,10 +64,6 @@ finalResult:
 	la $a0, yourNumber	# Presents result dialog
 	lw $a1, result($zero)	# Loads result into number space
 	syscall
-	
-	li $v0, 4
-	la $a0, clearScreen
-	syscall 
 	
 	Li_La_Sys (50, playAgain)	# Asks user if they want to play again
 	beq	$a0, 0, main		# Loop back to start
